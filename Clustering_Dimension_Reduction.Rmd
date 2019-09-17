@@ -26,7 +26,7 @@ library(fastICA)
 
 ```{r}
 # read in Auto data
-Auto_data <- read_csv("/Users/ay1392/Desktop/Auto.csv")
+Auto_data <- read_csv("/Users/nithumathew/Desktop/ml/hw1/Auto.csv")
 
 #remove cars with unknown horsepower and set horsepower to numeric
 Auto_data <- Auto_data %>% 
@@ -66,9 +66,9 @@ Step 1. Each car is a cluster.
 Step 2. Create a distance matrix from Auto_data_clust.
 
 ```{r}
-help("dist")
+#help("dist")
 hierarchical_dist <- as.matrix(dist(Auto_data_clust, method = "euclidean"))
-#View(hierarchical_dist)
+View(hierarchical_dist)
 ```
 
 Step 3. Find the two cars that are the most similar to each other and print the names of those two cars
@@ -268,27 +268,153 @@ heatmap(a$S)
 ## Homework
 
 ```{r}
-data(iris)
+iris
 ```
 
 0. Subset the Iris dataset to only include `Sepal.Length`, `Sepal.Width`, `Petal.Length`, and `Petal.Width`. 
 
+```{r}
+iris <- iris %>%
+  select(Sepal.Length, Sepal.Width, Petal.Length, Petal.Width) %>%
+  as.data.frame()
+```
+
 1. Write out the Kmeans algorithm by hand, and run two iterations of it. 
 
+```{r}
+
+#Step 1: Randomly pick three centroids 
+set.seed(123)
+sl_points=runif(3,range(iris$Sepal.Length)[1], range(iris$Sepal.Length)[2])
+set.seed(123)
+pl_points=runif(3,range(iris$Petal.Length)[1], range(iris$Petal.Length)[2])
+set.seed(123)
+sw_points=runif(3,range(iris$Sepal.Width)[1], range(iris$Sepal.Width)[2])
+set.seed(123)
+pw_points=runif(3,range(iris$Petal.Width)[1], range(iris$Petal.Width)[2])
+
+centroid=matrix(1:12, nrow = 3)
+for(i in 1:3){centroid[i,]=c(sl_points[i],sw_points[i], pl_points[i], pw_points[i])}
+
+print(centroid)
+
+#Step 2: Calculate distance of all observations and assign clusters
+sqdist=function(x, y){
+  return(sum((x-y)^2))
+  }
+
+distances=rep(NA, 3)
+assignments=rep(NA, 150)->assignments_new
+
+for(i in 1:150){
+  for(j in 1:3){
+    distances[j]=sqdist(iris[i,],centroid[j,])
+  }
+  assignments[i]=which.min(distances)
+}
+
+#Step 3: Recalculate centroids and re-assign clusters
+for(i in 1:3){
+  centroid[i,1]=mean(iris$Sepal.Length[which(assignments==i)])
+  centroid[i,2]=mean(iris$Sepal.Width[which(assignments==i)])
+  centroid[i,3]=mean(iris$Petal.Length[which(assignments==i)])
+  centroid[i,4]=mean(iris$Petal.Width[which(assignments==i)])
+}
+
+print(centroid)
+
+for(i in 1:150){
+  for(j in 1:3){
+    distances[j]=sqdist(iris[i,],centroid[j,])
+  }
+  assignments_new[i]=which.min(distances)
+}
+
+```
+
 2. Run PCA on the Iris dataset. Plot a scatter plot of PC1 vs PC2 and include the percent variance those PCs describe. 
+```{r}
+autoplot(prcomp(iris))
+```
+
 
 3. Run ICA on the Iris dataset. Plot the independent components as a heatmap.
+
+```{r}
+a <- fastICA(iris, 4, alg.typ = "parallel", fun = "logcosh", alpha = 1,
+             method = "R", row.norm = FALSE, maxit = 200,
+             tol = 0.0001, verbose = TRUE)
+```
+
+plot the independent components as a heatmap
+```{r}
+heatmap(a$S)
+```
+
 
 4. Use Kmeans to cluster the Iris data. 
   * Use the silhouette function in the cluster package to find the optimal number of clusters for kmeans for the iris dataset. Then cluster using kmeans clustering. Does the data cluster by species? 
   * Using this clustering, color the PCA plot according to the clusters.
-  
+
+```{r}
+library(cluster)
+
+silhouette_score <- function(k){
+  km <- kmeans(iris, centers = k, nstart=25)
+  ss <- silhouette(km$cluster, dist(iris))
+  mean(ss[, 3])
+}
+k <- 2:10
+avg_sil <- sapply(k, silhouette_score)
+plot(k, type='b', avg_sil, xlab='Number of clusters', ylab='Average Silhouette Scores', frame=FALSE)
+```
+
+From the silhouette method it is clear that the optimal number of clusters is 2. The data does not cluster by species because there are three different species but the optimal number of clusters is 2.
+
+```{r}
+km_iris <- kmeans(iris, centers = 2, nstart = 25)
+km_iris
+
+autoplot(prcomp(iris), col = km_iris$cluster)
+```
+
 5. Use hierarchical clustering to cluster the Iris data.
 
-  * Try two different linkage types, and two different distance metrics. 
+  * Try two different linkage types, and two different distance metrics.
+```{r}
+dist_euclidean <- dist(iris, method = "euclidean")
+dist_manhattan <- dist(iris, method = "manhattan")
+
+tree1 <- hclust(dist_euclidean, method = "single")
+tree2 <- hclust(dist_euclidean, method = "average")
+tree3 <- hclust(dist_manhattan, method = "single")
+tree4 <- hclust(dist_manhattan, method = "average")
+
+plot(tree1)
+plot(tree2)
+plot(tree3)
+plot(tree4)
+```
+
   * For one linkage type and one distance metric, try two different cut points. 
-  * Using this clustering, color the PCA plot according to the clusters. (6  plots in total)
   
+```{r}
+plot(tree2)
+cut2 <- cutree(tree2, k = 2)
+# plot the tree before running this line 
+rect.hclust(tree2, k = 2, h = NULL)
+
+plot(tree2)
+cut3 <- cutree(tree2, k = 3)
+rect.hclust(tree2, k = 3, h = NULL)
+```
+
+  * Using this clustering, color the PCA plot according to the clusters. (6  plots in total)
+```{r}
+autoplot(prcomp(iris), col = cut3)
+autoplot(prcomp(iris), col = cut2)
+```
+
 
 # Optional material
 On PCA:
